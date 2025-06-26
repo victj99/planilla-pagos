@@ -1,0 +1,1 @@
+ALTER TABLE `productoProcesado` ADD `etiqueta` text;

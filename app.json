@@ -1,7 +1,8 @@
 {
   "expo": {
-    "name": "pagos-juanita",
-    "slug": "pagos-juanita",
+    "name": "Planilla pagos",
+    "slug": "planilla-pagos",
+    "owner": "victj",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
@@ -9,14 +10,16 @@
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.victj.planillaPagos"
     },
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/adaptive-icon.png",
         "backgroundColor": "#ffffff"
       },
-      "edgeToEdgeEnabled": true
+      "edgeToEdgeEnabled": true,
+      "package": "com.victj.planillaPagos"
     },
     "web": {
       "bundler": "metro",
@@ -33,10 +36,17 @@
           "resizeMode": "contain",
           "backgroundColor": "#ffffff"
         }
-      ]
+      ],
+      "expo-sqlite"
     ],
     "experiments": {
       "typedRoutes": true
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "ad60d432-3bf2-41d6-b0a4-4cba675186cd"
+      }
     }
   }
 }
