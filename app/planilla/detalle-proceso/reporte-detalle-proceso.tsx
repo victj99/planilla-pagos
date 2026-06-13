@@ -8,7 +8,6 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { Dimensions, SafeAreaView, Text, View } from 'react-native'
 import ActionSheet, { ActionSheetRef, ScrollView } from 'react-native-actions-sheet'
 import { ActivityIndicator, Card, Divider, List } from 'react-native-paper'
-import { useSafeAreaInsets } from 'react-native-safe-area-context'
 
 const { height: screenHeight } = Dimensions.get('window')
 const MAX_LIST_HEIGHT_PERCENTAGE = 0.7 // 80% de la altura de la pantalla
@@ -145,8 +144,6 @@ interface ListaDetalleProps {
   idProductoProcesado: number
 }
 function ListaDetalle({ data, idProductoProcesado }: ListaDetalleProps) {
-  const insets = useSafeAreaInsets()
-
   const actionSheetRef = useRef<ActionSheetRef>(null)
   const [datosSelet, setDatosSelet] = useState<DetalleProducto | null>(null)
 
@@ -194,7 +191,6 @@ function ListaDetalle({ data, idProductoProcesado }: ListaDetalleProps) {
     <ActionSheet
       ref={actionSheetRef}
       containerStyle={{ minHeight: 300, paddingHorizontal: 10 }}
-      safeAreaInsets={insets}
     >
       <Text className='text-lg mt-2 font-semibold text-purple-500'>Detalle de pago</Text>
       <Divider className='my-1' />

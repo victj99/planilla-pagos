@@ -7,13 +7,10 @@ import { Controller, useForm } from 'react-hook-form'
 import { Alert, View } from 'react-native'
 import ActionSheet, { ScrollView, SheetManager, SheetProps } from 'react-native-actions-sheet'
 import { Button, HelperText, List, TextInput, Text as TextPaper } from 'react-native-paper'
-import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import SeparatorView from '../Separator'
 
 
 export default function AgregarTrabajadorProcesoSheet({ payload }: SheetProps<'agregar-trabajador-proceso-sheet'>) {
-  const insets = useSafeAreaInsets()
-
   const { control, handleSubmit } = useForm<TrabajadorProcesoInsert>({
     defaultValues: { toneladasProcesadas: 0, idProductoProcesado: payload?.idProductoProcesado, totalColaboradores: 0 }
   })
@@ -31,7 +28,7 @@ export default function AgregarTrabajadorProcesoSheet({ payload }: SheetProps<'a
     SheetManager.hide('agregar-trabajador-proceso-sheet')
   }
 
-  return <ActionSheet containerStyle={{ height: 350, padding: 10 }} safeAreaInsets={insets}>
+  return <ActionSheet containerStyle={{ height: 350, padding: 10 }}>
 
     <TextPaper variant='titleMedium'>Agregar trabajador</TextPaper>
     <SeparatorView height={15} />

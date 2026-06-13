@@ -8,14 +8,11 @@ import { Controller, useForm } from 'react-hook-form'
 import { Alert, Platform, ScrollView, View } from 'react-native'
 import ActionSheet, { SheetManager, SheetProps } from 'react-native-actions-sheet'
 import { Button, HelperText, List, TextInput, Text as TextPaper, TouchableRipple } from 'react-native-paper'
-import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import SeparatorView from '../Separator'
 import TextInputForm from '../form/TextInputForm'
 
 
 export default function CrearProductoProcesadoSheet({ payload }: SheetProps<'crear-producto-procesado-sheet'>) {
-  const insets = useSafeAreaInsets()
-
   const productoProcesado = useMemo(
     () => payload?.id ? obtenerProductoProcesado(payload?.id) : undefined,
     [payload?.id]
@@ -58,7 +55,7 @@ export default function CrearProductoProcesadoSheet({ payload }: SheetProps<'cre
     SheetManager.hide('crear-producto-procesado-sheet')
   }
 
-  return <ActionSheet containerStyle={{ height: 450, padding: 10 }} safeAreaInsets={insets}>
+  return <ActionSheet containerStyle={{ height: 450, padding: 10 }}>
 
     {!productoProcesado && <TextPaper variant='titleMedium'>Nuevo producto procesado</TextPaper>}
     {productoProcesado && <TextPaper variant='titleMedium'>Modificar producto</TextPaper>}
