@@ -7,9 +7,6 @@ module.exports = function (api) {
     ],
     plugins: [
       ["inline-import", { "extensions": [".sql"] }],
-
-      // Reanimated debe ser el ultimo
-      'react-native-reanimated/plugin'
     ],
     env: {
       production: {
