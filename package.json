@@ -24,6 +24,7 @@
     "drizzle-orm": "^0.45.2",
     "expo": "^55.0.0",
     "expo-blur": "~55.0.14",
+    "expo-build-properties": "~55.0.14",
     "expo-constants": "~55.0.16",
     "expo-font": "~55.0.8",
     "expo-haptics": "~55.0.14",
@@ -67,7 +68,9 @@
   },
   "expo": {
     "install": {
-      "exclude": ["react-native-view-shot"]
+      "exclude": [
+        "react-native-view-shot"
+      ]
     }
   },
   "private": true,
