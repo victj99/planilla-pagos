@@ -1,13 +1,9 @@
 import { Text, View } from 'react-native'
 import ActionSheet, { ScrollView, SheetProps } from 'react-native-actions-sheet'
 import { Divider, List } from 'react-native-paper'
-import { useSafeAreaInsets } from 'react-native-safe-area-context'
 
 export default function DetalleReporteDiaSheet({ payload }: SheetProps<'detalle-reporte-dia-sheet'>) {
-  const insets = useSafeAreaInsets()
-
   return <ActionSheet
-    safeAreaInsets={insets}
     containerStyle={{ minHeight: 300, paddingHorizontal: 10 }}
   >
     <Text className='text-2xl mt-2 font-semibold text-purple-500'>

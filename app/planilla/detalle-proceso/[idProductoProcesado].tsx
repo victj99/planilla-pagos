@@ -39,10 +39,10 @@ export default function ProductoProcesadoView() {
     router.navigate({ pathname: '/planilla/detalle-proceso/calculo-pago', params: { idTrabajadorProceso: id } })
   }
 
-  async function listarDatos() {
+  const listarDatos = useCallback(async () => {
     const datos = await liveQueryTrabajadoresProceso(+idProdProcesado)
     setData(datos)
-  }
+  }, [idProdProcesado])
 
   useEffect(() => {
     navigation.setOptions({
@@ -57,14 +57,13 @@ export default function ProductoProcesadoView() {
   useFocusEffect(useCallback(() => {
     setData([])
     listarDatos()
-  }, []))
+  }, [listarDatos]))
 
   return <View className='h-full mx-2 pb-safe'>
     <TextPaper variant='titleMedium' className='mt-2'>Personal que procesó ({trabajadoresProceso.length})</TextPaper>
     <SeparatorView />
 
     <FlashList
-      estimatedItemSize={300}
       data={trabajadoresProceso}
       ItemSeparatorComponent={() => <View style={{ height: 10 }} ></View>}
       renderItem={({ item }) => <TarjetaDetalle
@@ -82,7 +81,7 @@ interface TarjetaDetalleProps {
   precioTonelada?: number
 }
 function TarjetaDetalle({ data, onPress, precioTonelada = 0 }: TarjetaDetalleProps) {
-  const [pago, setPago] = useState('P')
+  const [pago, setPago] = useState<number | null>(null)
 
   async function eliminarRegistro() {
     Alert.alert('Confirmar', '¿Desea eliminar el registro?', [
@@ -99,7 +98,7 @@ function TarjetaDetalle({ data, onPress, precioTonelada = 0 }: TarjetaDetallePro
       extra: pagoExtra || ''
     })
 
-    setPago(pagoTotal + '')
+    setPago(pagoTotal)
   }
 
   useEffect(() => {
@@ -125,7 +124,7 @@ function TarjetaDetalle({ data, onPress, precioTonelada = 0 }: TarjetaDetallePro
             </View>
             <View className="w-full 2xs:w-[50%] flex-row">
               <Text className='font-medium text-purple-600'>Total: </Text>
-              {pago === 'P' ? <ActivityIndicator size='small' /> : <Text>S/ {pago}</Text>}
+              {pago === null ? <ActivityIndicator size='small' /> : <Text>S/ {pago}</Text>}
             </View>
           </View>
 

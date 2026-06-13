@@ -6,7 +6,7 @@ import Big from 'big.js'
 import { useLocalSearchParams, useNavigation } from 'expo-router'
 import { isAvailableAsync, shareAsync } from 'expo-sharing'
 import { useEffect, useRef, useState } from 'react'
-import { ScrollView, Text, TextProps, View } from 'react-native'
+import { LayoutChangeEvent, ScrollView, Text, TextProps, View } from 'react-native'
 import { SheetManager } from 'react-native-actions-sheet'
 import { ActivityIndicator, IconButton, Tooltip, TouchableRipple } from 'react-native-paper'
 import ViewShot, { captureRef } from 'react-native-view-shot'
@@ -67,6 +67,7 @@ export default function ReportePlanillaView() {
   const snapshotRef = useRef(null)
   const [isPending, setIsPending] = useState(true)
   const [capturarLista, setcapturarLista] = useState(false)
+  const [rowsH, setRowsH] = useState<number[]>([])
 
   const [state, setState] = useState<DetalleGeneral>({
     data: [],
@@ -145,6 +146,11 @@ export default function ReportePlanillaView() {
     }
   }
 
+  const handleTextLayout = (event: LayoutChangeEvent, index: number) => {
+    const { height } = event.nativeEvent.layout
+    setRowsH((prev) => [...prev, height],)
+  }
+
   useEffect(() => {
     if (capturarLista) {
       capturarCompartir()
@@ -176,10 +182,10 @@ export default function ReportePlanillaView() {
     <ScrollView>
       <View className='flex-row'>
 
-        {!capturarLista && <View className='w-[140]'>
+        {!capturarLista && <View className='w-[150]'>
           <TextHeader className='bg-white'>Trabajador</TextHeader>
           {state.data.map((item, idx) => (
-            <TextRow className='w-[150] text-white bg-blue-500' key={'left-' + idx}>
+            <TextRow className='w-[150] text-white bg-blue-500' key={'left-' + idx} onLayout={e => handleTextLayout(e, idx)}>
               {item.nombreTrabajador}
             </TextRow>
           ))}
@@ -206,6 +212,7 @@ export default function ReportePlanillaView() {
               {state.data.map((item, idx) => (
                 <View
                   className={`flex-row ${idx % 2 == 0 ? 'bg-purple-100' : ''}`}
+                  style={{ height: rowsH[idx] }}
                   key={item.idTrabajador + '-' + idx}>
 
                   {capturarLista && <TextRow className='w-[150] text-white bg-blue-500' key={'left-' + idx}>

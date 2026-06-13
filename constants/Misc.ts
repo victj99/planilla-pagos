@@ -24,7 +24,7 @@ export const REQUIRED_RULE = { required: { value: true, message: REQUIRED_MSG } 
 export const REQUIRED_DECIMAL = {
   ...REQUIRED_RULE,
   pattern: { value: /^\d+(\.\d{1,3})?$/, message: 'Ingrese un valor válido' },
-  min: { value: 1, message: 'Debe ingresar un valor mínimo mayor a cero' }
+  min: { value: 0.01, message: 'Debe ingresar un valor mínimo mayor a cero' }
 }
 
 export const REQUIRED_INT = {

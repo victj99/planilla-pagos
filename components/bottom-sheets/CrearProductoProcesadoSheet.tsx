@@ -5,17 +5,14 @@ import { ProductoProcesadoInsert } from '@/lib/db/productoProcesado'
 import { labelDiaSemana } from '@/lib/utils'
 import { useMemo, useState } from 'react'
 import { Controller, useForm } from 'react-hook-form'
-import { Alert, Platform, View } from 'react-native'
+import { Alert, Platform, ScrollView, View } from 'react-native'
 import ActionSheet, { SheetManager, SheetProps } from 'react-native-actions-sheet'
 import { Button, HelperText, List, TextInput, Text as TextPaper, TouchableRipple } from 'react-native-paper'
-import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import SeparatorView from '../Separator'
 import TextInputForm from '../form/TextInputForm'
 
 
 export default function CrearProductoProcesadoSheet({ payload }: SheetProps<'crear-producto-procesado-sheet'>) {
-  const insets = useSafeAreaInsets()
-
   const productoProcesado = useMemo(
     () => payload?.id ? obtenerProductoProcesado(payload?.id) : undefined,
     [payload?.id]
@@ -58,74 +55,75 @@ export default function CrearProductoProcesadoSheet({ payload }: SheetProps<'cre
     SheetManager.hide('crear-producto-procesado-sheet')
   }
 
-  return <ActionSheet containerStyle={{ height: 450, padding: 10 }} safeAreaInsets={insets}>
+  return <ActionSheet containerStyle={{ height: 450, padding: 10 }}>
 
     {!productoProcesado && <TextPaper variant='titleMedium'>Nuevo producto procesado</TextPaper>}
     {productoProcesado && <TextPaper variant='titleMedium'>Modificar producto</TextPaper>}
 
     <SeparatorView height={15} />
 
-    <Controller
-      control={control} name='diaSemana'
-      rules={REQUIRED_RULE}
-      render={({ field }) => <TouchableRipple
-        onPress={() => seleccionarDiaSemana(field.value)}
-      >
-        <TextInput
-          readOnly
-          label='Dia de la semana'
-          value={labelDiaSemana(field.value)}
-          onPress={() => Platform.OS === 'ios' ? seleccionarDiaSemana(field.value) : null}
-        />
-      </TouchableRipple>}
-    />
-    <SeparatorView />
+    <ScrollView>
+      <Controller
+        control={control} name='diaSemana'
+        rules={REQUIRED_RULE}
+        render={({ field }) => <TouchableRipple
+          onPress={() => seleccionarDiaSemana(field.value)}
+        >
+          <TextInput
+            readOnly
+            label='Dia de la semana'
+            value={labelDiaSemana(field.value)}
+            onPress={() => Platform.OS === 'ios' ? seleccionarDiaSemana(field.value) : null}
+          />
+        </TouchableRipple>}
+      />
+      <SeparatorView />
 
-    {!productoProcesado && <Controller
-      rules={REQUIRED_RULE}
-      control={control} name='idProducto'
-      render={({ field, fieldState }) => <>
-        <AutocompleteProductos
-          value={field.value}
-          error={fieldState.error?.message}
-          onSelect={(value) => {
-            field.onChange(value.id)
-            const precioTon = getValues('precioTonelada')
-            if (!precioTon || +precioTon === 0) {
-              setValue('precioTonelada', value.precioTonelada)
-            }
-          }}
-        />
-      </>}
-    />}
-    <SeparatorView />
+      {!productoProcesado && <Controller
+        rules={REQUIRED_RULE}
+        control={control} name='idProducto'
+        render={({ field, fieldState }) => <>
+          <AutocompleteProductos
+            value={field.value}
+            error={fieldState.error?.message}
+            onSelect={(value) => {
+              field.onChange(value.id)
+              const precioTon = getValues('precioTonelada')
+              if (!precioTon || +precioTon === 0) {
+                setValue('precioTonelada', value.precioTonelada)
+              }
+            }}
+          />
+        </>}
+      />}
+      <SeparatorView />
 
-    <TextInputForm
-      control={control}
-      controlName='precioTonelada'
-      label='Precio por tonelada'
-      inputMode='decimal'
-      rules={REQUIRED_DECIMAL}
-    />
-    <SeparatorView />
+      <TextInputForm
+        control={control}
+        controlName='precioTonelada'
+        label='Precio por tonelada'
+        inputMode='decimal'
+        rules={REQUIRED_DECIMAL}
+      />
+      <SeparatorView />
 
-    <TextInputForm
-      control={control}
-      controlName='toneladas'
-      label='Toneladas totales procesadas'
-      inputMode='decimal'
-      rules={REQUIRED_DECIMAL}
-    />
-    <SeparatorView height={15} />
+      <TextInputForm
+        control={control}
+        controlName='toneladas'
+        label='Toneladas totales procesadas'
+        inputMode='decimal'
+        rules={REQUIRED_DECIMAL}
+      />
+      <SeparatorView height={15} />
 
-    <TextInputForm
-      control={control}
-      controlName='etiqueta'
-      label='Etiqueta (opcional)'
-      rules={{
-        maxLength: { value: 20, message: 'Solo se permite un máximo de 20 letras' }
-      }} />
-
+      <TextInputForm
+        control={control}
+        controlName='etiqueta'
+        label='Etiqueta (opcional)'
+        rules={{
+          maxLength: { value: 20, message: 'Solo se permite un máximo de 20 letras' }
+        }} />
+    </ScrollView>
 
     <View className='mt-4'>
       <Button mode='contained-tonal' onPress={handleSubmit(submit)}>
@@ -168,10 +166,10 @@ function AutocompleteProductos({ onSelect, value, error }: AutocompleteProductos
   }
 
   function onBlur() {
-    if (nombre.length > 0 && value === undefined) {
+    if (nombre.length > 0 && value === undefined && productos.length > 0) {
       setNombre('')
+      setProductos([])
     }
-    setProductos([])
   }
 
   async function registrarProducto() {

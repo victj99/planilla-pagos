@@ -5,11 +5,9 @@ import { useForm } from 'react-hook-form'
 import { Alert, View } from 'react-native'
 import ActionSheet, { SheetManager } from 'react-native-actions-sheet'
 import { Button } from 'react-native-paper'
-import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import TextInputForm from '../form/TextInputForm'
 
 export default function CrearPlanillaBottomSheet() {
-  const insets = useSafeAreaInsets()
   const { control, handleSubmit } = useForm<PlanillaSemanalInsert>({
     defaultValues: { nombre: '' }
   })
@@ -28,7 +26,7 @@ export default function CrearPlanillaBottomSheet() {
     SheetManager.hide('crear-planilla-sheet')
   }
 
-  return <ActionSheet containerStyle={{ height: 250, padding: 10 }} safeAreaInsets={insets}>
+  return <ActionSheet containerStyle={{ height: 250, padding: 10 }}>
 
     <TextInputForm control={control} controlName='nombre' label='Nombre' rules={rules} />
 
