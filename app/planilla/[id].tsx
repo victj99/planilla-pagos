@@ -74,7 +74,6 @@ export default function PlanillaView() {
     <SeparatorView />
 
     <FlashList
-      estimatedItemSize={300}
       data={productos}
       ItemSeparatorComponent={() => <View style={{ height: 10 }} ></View>}
       renderItem={({ item }) => <Card

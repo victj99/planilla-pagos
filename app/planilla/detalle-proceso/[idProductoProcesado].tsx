@@ -64,7 +64,6 @@ export default function ProductoProcesadoView() {
     <SeparatorView />
 
     <FlashList
-      estimatedItemSize={300}
       data={trabajadoresProceso}
       ItemSeparatorComponent={() => <View style={{ height: 10 }} ></View>}
       renderItem={({ item }) => <TarjetaDetalle

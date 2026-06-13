@@ -159,7 +159,6 @@ function ListaDetalle({ data, idProductoProcesado }: ListaDetalleProps) {
   return <View style={{ height: dynamicListHeight }}>
     <FlashList
       data={data}
-      estimatedItemSize={80}
       ItemSeparatorComponent={() => <SeparatorView />}
       renderItem={({ item }) => <Card
         onLongPress={() => {

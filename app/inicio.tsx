@@ -51,7 +51,6 @@ export default function MainView() {
 
   return <View className='h-full pb-safe'>
     <FlashList
-      estimatedItemSize={200}
       data={planillas}
       ItemSeparatorComponent={() => <View style={{ height: 10 }} ></View>}
       renderItem={({ item }) => <Card className='mx-2 border-purple-400 border' onPress={() => abrirPlanilla(item.id)}>

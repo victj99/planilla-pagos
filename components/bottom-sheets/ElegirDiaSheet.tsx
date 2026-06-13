@@ -17,7 +17,6 @@ export default function ElegirDiaSheet({ payload }: SheetProps<'elegir-dia-sheet
 
     <View style={{ height: 180 }}>
       <FlashList
-        estimatedItemSize={200}
         data={diasSemanaOpts}
         ItemSeparatorComponent={() => <SeparatorView />}
         renderItem={({ item }) => <List.Item
