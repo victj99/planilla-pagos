@@ -1,5 +1,5 @@
 import Big from 'big.js'
-import { and, asc, eq, like, sql } from 'drizzle-orm'
+import { and, asc, desc, eq, like, sql } from 'drizzle-orm'
 import { db } from './database'
 import { distribucionDescuentoTable } from './db/distribucionDescuento'
 import { PlanillaSemanalInsert, planillaSemanalTable } from './db/planillaSemanal'
@@ -10,7 +10,7 @@ import { TrabajadorProcesoInsert, TrabajadorProcesoSelect3, trabajadorProcesoTab
 
 // Planilla semanal
 export function obtenerPlanillasSemanales() {
-  return db.select().from(planillaSemanalTable).all()
+  return db.select().from(planillaSemanalTable).orderBy(desc(planillaSemanalTable.creacion)).all()
 }
 
 export async function insertarPlanillaSemanal(data: PlanillaSemanalInsert) {
@@ -108,8 +108,6 @@ export function obtenerTrabajadorProceso2(id: number) {
     .innerJoin(trabajadorTable, eq(trabajadorTable.id, trabajadorProcesoTable.idTrabajador))
     .innerJoin(productoProcesadoTable, eq(productoProcesadoTable.id, trabajadorProcesoTable.idProductoProcesado))
     .where(eq(trabajadorProcesoTable.id, id)).limit(1)
-
-  console.log(data.toSQL())
 
   return data.all()[0]
 }
@@ -231,17 +229,13 @@ export async function actualizarTrabajadorProceso(data: TrabajadorProcesoUpdate)
 }
 
 export async function eliminaTrabajadorProceso(id: number) {
-  const data = await db.select({ idTrabajador: trabajadorProcesoTable.idTrabajador }).from(trabajadorProcesoTable).where(
-    eq(trabajadorProcesoTable.id, id)
+  await db.delete(distribucionDescuentoTable).where(
+    eq(distribucionDescuentoTable.idTrabajadorProceso, id)
   )
 
   await db.delete(trabajadorProcesoTable).where(
     eq(trabajadorProcesoTable.id, id)
   )
-
-  await db.delete(distribucionDescuentoTable).where(and(
-    eq(distribucionDescuentoTable.idTrabajador, data[0].idTrabajador)
-  ))
 }
 
 // Trabajador
@@ -275,10 +269,9 @@ export async function insertarProducto(data: ProductoInsert) {
 }
 
 export async function actualizarPrecioProducto(id: number, precioTonelada: number) {
-  const insert = await db.update(productoTable).set({ precioTonelada }).where(and(
-    eq(productoTable.id, id),
-    eq(productoTable.precioTonelada, 0),
-  ))
+  const insert = await db.update(productoTable).set({ precioTonelada }).where(
+    eq(productoTable.id, id)
+  )
   return insert.lastInsertRowId
 }
 
