@@ -1,3 +1,4 @@
+import { formatearMonto } from '@/lib/utils'
 import { Text, View } from 'react-native'
 import ActionSheet, { ScrollView, SheetProps } from 'react-native-actions-sheet'
 import { Divider, List } from 'react-native-paper'
@@ -22,14 +23,14 @@ export default function DetalleReporteDiaSheet({ payload }: SheetProps<'detalle-
             {item.nombreProducto}
             <Text className='text-[12px]'> ({item.toneladasProcesadas}t / {item.totalColaboradores})</Text>
           </Text>}
-          right={() => <Text className='font-bold'>S/ {item.pagoTotal}</Text>}
+          right={() => <Text className='font-bold'>S/ {formatearMonto(item.pagoTotal)}</Text>}
         />)}
       </ScrollView>
 
       <Divider className='my-2' />
       <View className='flex-row justify-between'>
         <Text>Pago Total: </Text>
-        <Text className='font-bold text-purple-700 mr-5'>S/ {payload?.pagoTotalDia}</Text>
+        <Text className='font-bold text-purple-700 mr-5'>S/ {formatearMonto(payload?.pagoTotalDia)}</Text>
       </View>
     </View>
   </ActionSheet>

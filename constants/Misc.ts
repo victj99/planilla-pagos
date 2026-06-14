@@ -20,6 +20,14 @@ export const diasSemanaOpts: SelectOption[] = [
   { value: 'X', label: 'Miercoles' },
 ]
 
+export const motivosAjusteOpts: SelectOption[] = [
+  { value: 'Préstamo', label: 'Préstamo' },
+  { value: 'Castigo', label: 'Castigo' },
+  { value: 'Suspensión', label: 'Suspensión' },
+  { value: 'Adelanto', label: 'Adelanto' },
+  { value: 'Otro', label: 'Otro' },
+]
+
 export const REQUIRED_RULE = { required: { value: true, message: REQUIRED_MSG } }
 export const REQUIRED_DECIMAL = {
   ...REQUIRED_RULE,

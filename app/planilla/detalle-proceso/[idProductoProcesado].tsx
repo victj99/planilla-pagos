@@ -1,10 +1,12 @@
+import EmptyState from '@/components/EmptyState'
 import { OpcionesMenu } from '@/components/OpcionesMenu'
 import SeparatorView from '@/components/Separator'
 import { eliminaTrabajadorProceso, liveQueryTrabajadoresProceso, obtenerCalculoPagoExtra, obtenerProductoProcesado2 } from '@/lib/database.service'
 import { TrabajadorProcesoSelect2 } from '@/lib/db/trabajadorProceso'
-import { calcularPagoTrabajador } from '@/lib/utils'
+import { calcularPagoTrabajador, formatearMonto } from '@/lib/utils'
 import { HeaderOptions } from '@react-navigation/elements'
 import { FlashList } from '@shopify/flash-list'
+import * as Haptics from 'expo-haptics'
 import { useFocusEffect, useLocalSearchParams, useNavigation, useRouter } from 'expo-router'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Alert, Text, View } from 'react-native'
@@ -65,11 +67,19 @@ export default function ProductoProcesadoView() {
 
     <FlashList
       data={trabajadoresProceso}
-      ItemSeparatorComponent={() => <View style={{ height: 10 }} ></View>}
+      ItemSeparatorComponent={() => <View style={{ height: 10 }} />}
+      ListEmptyComponent={
+        <EmptyState
+          icon='account-plus'
+          title='Sin trabajadores'
+          description='Añade trabajadores a esta sesión usando el menú superior.'
+        />
+      }
       renderItem={({ item }) => <TarjetaDetalle
         data={item}
         precioTonelada={productoProcesado?.precioTonelada}
-        onPress={onTrabajadorPress} />
+        onPress={onTrabajadorPress}
+        onEliminado={listarDatos} />
       }
     />
   </View >
@@ -79,14 +89,21 @@ interface TarjetaDetalleProps {
   onPress: (id: number) => void
   data: TrabajadorProcesoSelect2
   precioTonelada?: number
+  onEliminado?: () => void
 }
-function TarjetaDetalle({ data, onPress, precioTonelada = 0 }: TarjetaDetalleProps) {
+function TarjetaDetalle({ data, onPress, precioTonelada = 0, onEliminado }: TarjetaDetalleProps) {
   const [pago, setPago] = useState<number | null>(null)
 
   async function eliminarRegistro() {
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning)
     Alert.alert('Confirmar', '¿Desea eliminar el registro?', [
       { text: 'No' },
-      { text: 'Si', onPress: async () => await eliminaTrabajadorProceso(data.id) },
+      {
+        text: 'Si', onPress: async () => {
+          await eliminaTrabajadorProceso(data.id)
+          onEliminado?.()
+        }
+      },
     ])
   }
 
@@ -103,7 +120,7 @@ function TarjetaDetalle({ data, onPress, precioTonelada = 0 }: TarjetaDetallePro
 
   useEffect(() => {
     onInit()
-  }, [data.toneladasProcesadas, data.totalColaboradores])
+  }, [data.toneladasProcesadas, data.totalColaboradores, precioTonelada])
 
   return <Card onPress={() => onPress(data.id)}>
     <Card.Content className='pl-[10] pr-0' style={{ paddingHorizontal: undefined }}>
@@ -124,13 +141,18 @@ function TarjetaDetalle({ data, onPress, precioTonelada = 0 }: TarjetaDetallePro
             </View>
             <View className="w-full 2xs:w-[50%] flex-row">
               <Text className='font-medium text-purple-600'>Total: </Text>
-              {pago === null ? <ActivityIndicator size='small' /> : <Text>S/ {pago}</Text>}
+              {pago === null ? <ActivityIndicator size='small' /> : <Text>S/ {formatearMonto(pago)}</Text>}
             </View>
           </View>
 
         </View>
 
-        <IconButton icon='delete' iconColor={MD3Colors.error60} onPress={eliminarRegistro} />
+        <IconButton
+          icon='delete'
+          iconColor={MD3Colors.error60}
+          onPress={eliminarRegistro}
+          accessibilityLabel='Eliminar trabajador del proceso'
+        />
       </View>
     </Card.Content>
   </Card>

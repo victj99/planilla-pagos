@@ -1,6 +1,6 @@
 import SeparatorView from '@/components/Separator'
-import { listarTrabajosPlanilla, obtenerCalculoPagoExtra } from '@/lib/database.service'
-import { calcularPagoTrabajador } from '@/lib/utils'
+import { listarAjustesPorPlanilla, listarTrabajosPlanilla, obtenerAjustesPorTrabajadorPlanilla, obtenerCalculoPagoExtra } from '@/lib/database.service'
+import { calcularPagoTrabajador, formatearMonto } from '@/lib/utils'
 import { HeaderOptions } from '@react-navigation/elements'
 import Big from 'big.js'
 import { useLocalSearchParams, useNavigation } from 'expo-router'
@@ -26,6 +26,8 @@ interface DataTabla {
   idTrabajador: number
   nombreTrabajador: string
   pagoTotal: number
+  ajustes: number
+  pagoNeto: number
 
   jueves: DetalleDia
   viernes: DetalleDia
@@ -47,6 +49,8 @@ interface DetalleGeneral {
     martes: number
     miercoles: number
     pagoTotal: number
+    ajustes: number
+    pagoNeto: number
   }
 }
 
@@ -68,16 +72,21 @@ export default function ReportePlanillaView() {
   const [isPending, setIsPending] = useState(true)
   const [capturarLista, setcapturarLista] = useState(false)
   const [rowsH, setRowsH] = useState<number[]>([])
+  const [ajustesDetalle, setAjustesDetalle] = useState<ReturnType<typeof listarAjustesPorPlanilla>>([])
+  const [incluirAjustes, setIncluirAjustes] = useState(true)
+  const [puedeCompartir, setPuedeCompartir] = useState(false)
 
   const [state, setState] = useState<DetalleGeneral>({
     data: [],
-    totales: { jueves: 0, viernes: 0, sabado: 0, domingo: 0, lunes: 0, martes: 0, miercoles: 0, pagoTotal: 0 }
+    totales: { jueves: 0, viernes: 0, sabado: 0, domingo: 0, lunes: 0, martes: 0, miercoles: 0, pagoTotal: 0, ajustes: 0, pagoNeto: 0 }
   })
 
   async function onInit() {
-    const pagosTotales = { jueves: 0, viernes: 0, sabado: 0, domingo: 0, lunes: 0, martes: 0, miercoles: 0, pagoTotal: 0 }
+    const pagosTotales = { jueves: 0, viernes: 0, sabado: 0, domingo: 0, lunes: 0, martes: 0, miercoles: 0, pagoTotal: 0, ajustes: 0, pagoNeto: 0 }
     const mapaTrabajos = new Map<number, DataTabla>()
     const listaDatos = await listarTrabajosPlanilla(+idPlanilla)
+    const mapaAjustes = obtenerAjustesPorTrabajadorPlanilla(+idPlanilla)
+    setAjustesDetalle(listarAjustesPorPlanilla(+idPlanilla))
 
     for (const item of listaDatos) {
       if (!mapaTrabajos.has(item.idTrabajador)) {
@@ -85,6 +94,8 @@ export default function ReportePlanillaView() {
           idTrabajador: item.idTrabajador,
           nombreTrabajador: item.nombreTrabajador,
           pagoTotal: 0,
+          ajustes: 0,
+          pagoNeto: 0,
           jueves: { pagoTotalDia: 0, diaSemana: 'Jueves', detalle: [] },
           viernes: { pagoTotalDia: 0, diaSemana: 'Viernes', detalle: [] },
           sabado: { pagoTotalDia: 0, diaSemana: 'Sabado', detalle: [] },
@@ -115,6 +126,16 @@ export default function ReportePlanillaView() {
       pagosTotales[field] = new Big(pagosTotales[field]).plus(pagoTotal).toNumber()
       pagosTotales.pagoTotal = new Big(pagosTotales.pagoTotal).plus(pagoTotal).toNumber()
     }
+
+    // Aplicar ajustes (préstamos/castigos/etc.) y calcular el pago neto por trabajador
+    for (const trabajador of mapaTrabajos.values()) {
+      const ajustes = mapaAjustes.get(trabajador.idTrabajador) ?? 0
+      trabajador.ajustes = new Big(ajustes).round(2).toNumber()
+      trabajador.pagoNeto = new Big(trabajador.pagoTotal).plus(ajustes).round(2).toNumber()
+
+      pagosTotales.ajustes = new Big(pagosTotales.ajustes).plus(ajustes).toNumber()
+    }
+    pagosTotales.pagoNeto = new Big(pagosTotales.pagoTotal).plus(pagosTotales.ajustes).round(2).toNumber()
 
     const resumenData = {
       data: [
@@ -159,16 +180,26 @@ export default function ReportePlanillaView() {
 
   useEffect(() => {
     onInit()
-    isAvailableAsync().then(resp => {
-      if (!resp) return
-
-      navigation.setOptions({
-        headerRight: () => <Tooltip title='Compartir'>
-          <IconButton icon='share-variant' onPress={() => setcapturarLista(true)} />
-        </Tooltip>
-      } as HeaderOptions)
-    })
+    isAvailableAsync().then(setPuedeCompartir)
   }, [])
+
+  useEffect(() => {
+    navigation.setOptions({
+      headerRight: () => <View className='flex-row items-center'>
+        {ajustesDetalle.length > 0 && <Tooltip title={incluirAjustes ? 'Ocultar ajustes' : 'Mostrar ajustes'}>
+          <IconButton
+            icon={incluirAjustes ? 'eye' : 'eye-off'}
+            iconColor='white'
+            onPress={() => setIncluirAjustes(v => !v)}
+            accessibilityLabel={incluirAjustes ? 'Ocultar ajustes del reporte' : 'Mostrar ajustes del reporte'}
+          />
+        </Tooltip>}
+        {puedeCompartir && <Tooltip title='Compartir'>
+          <IconButton icon='share-variant' iconColor='white' onPress={() => setcapturarLista(true)} />
+        </Tooltip>}
+      </View>
+    } as HeaderOptions)
+  }, [incluirAjustes, puedeCompartir, ajustesDetalle.length])
 
   if (isPending) {
     return <View className='h-full justify-center items-center'>
@@ -206,7 +237,9 @@ export default function ReportePlanillaView() {
                 <TextHeader>Lunes</TextHeader>
                 <TextHeader>Martes</TextHeader>
                 <TextHeader>Miercoles</TextHeader>
-                <TextHeader>Total</TextHeader>
+                <TextHeader>Bruto</TextHeader>
+                <TextHeader>Ajustes</TextHeader>
+                <TextHeader>Neto</TextHeader>
               </View>
 
               {state.data.map((item, idx) => (
@@ -220,47 +253,68 @@ export default function ReportePlanillaView() {
                   </TextRow>}
 
                   <TextRow onLongPress={() => mostrarDetalleDia(item.jueves)}>
-                    {item.jueves.pagoTotalDia ? `S/ ${item.jueves.pagoTotalDia}` : '-'}
+                    {item.jueves.pagoTotalDia ? `S/ ${formatearMonto(item.jueves.pagoTotalDia)}` : '-'}
                   </TextRow>
 
                   <TextRow onLongPress={() => mostrarDetalleDia(item.viernes)}>
-                    {item.viernes.pagoTotalDia ? `S/ ${item.viernes.pagoTotalDia}` : '-'}
+                    {item.viernes.pagoTotalDia ? `S/ ${formatearMonto(item.viernes.pagoTotalDia)}` : '-'}
                   </TextRow>
 
                   <TextRow onLongPress={() => mostrarDetalleDia(item.sabado)}>
-                    {item.sabado.pagoTotalDia ? `S/ ${item.sabado.pagoTotalDia}` : '-'}
+                    {item.sabado.pagoTotalDia ? `S/ ${formatearMonto(item.sabado.pagoTotalDia)}` : '-'}
                   </TextRow>
 
                   <TextRow onLongPress={() => mostrarDetalleDia(item.domingo)}>
-                    {item.domingo.pagoTotalDia ? `S/ ${item.domingo.pagoTotalDia}` : '-'}
+                    {item.domingo.pagoTotalDia ? `S/ ${formatearMonto(item.domingo.pagoTotalDia)}` : '-'}
                   </TextRow>
 
                   <TextRow onLongPress={() => mostrarDetalleDia(item.lunes)}>
-                    {item.lunes.pagoTotalDia ? `S/ ${item.lunes.pagoTotalDia}` : '-'}
+                    {item.lunes.pagoTotalDia ? `S/ ${formatearMonto(item.lunes.pagoTotalDia)}` : '-'}
                   </TextRow>
 
                   <TextRow onLongPress={() => mostrarDetalleDia(item.martes)}>
-                    {item.martes.pagoTotalDia ? `S/ ${item.martes.pagoTotalDia}` : '-'}
+                    {item.martes.pagoTotalDia ? `S/ ${formatearMonto(item.martes.pagoTotalDia)}` : '-'}
                   </TextRow>
 
                   <TextRow onLongPress={() => mostrarDetalleDia(item.miercoles)}>
-                    {item.miercoles.pagoTotalDia ? `S/ ${item.miercoles.pagoTotalDia}` : '-'}
+                    {item.miercoles.pagoTotalDia ? `S/ ${formatearMonto(item.miercoles.pagoTotalDia)}` : '-'}
                   </TextRow>
 
-                  <TextRow>S/ {item.pagoTotal}</TextRow>
+                  <TextRow>S/ {formatearMonto(item.pagoTotal)}</TextRow>
+                  <TextRow>{item.ajustes ? `S/ ${formatearMonto(item.ajustes)}` : '-'}</TextRow>
+                  <TextRow className='w-[112] text-center font-semibold'>S/ {formatearMonto(item.pagoNeto)}</TextRow>
                 </View>
               ))}
               <View className='flex-row bg-green-200'>
                 {capturarLista && <TextRow className='w-[150] font-bold bg-green-200'>TOTAL</TextRow>}
-                <TextRow>S/ {state.totales.jueves}</TextRow>
-                <TextRow>S/ {state.totales.viernes}</TextRow>
-                <TextRow>S/ {state.totales.sabado}</TextRow>
-                <TextRow>S/ {state.totales.domingo}</TextRow>
-                <TextRow>S/ {state.totales.lunes}</TextRow>
-                <TextRow>S/ {state.totales.martes}</TextRow>
-                <TextRow>S/ {state.totales.miercoles}</TextRow>
-                <TextRow>S/ {state.totales.pagoTotal}</TextRow>
+                <TextRow>S/ {formatearMonto(state.totales.jueves)}</TextRow>
+                <TextRow>S/ {formatearMonto(state.totales.viernes)}</TextRow>
+                <TextRow>S/ {formatearMonto(state.totales.sabado)}</TextRow>
+                <TextRow>S/ {formatearMonto(state.totales.domingo)}</TextRow>
+                <TextRow>S/ {formatearMonto(state.totales.lunes)}</TextRow>
+                <TextRow>S/ {formatearMonto(state.totales.martes)}</TextRow>
+                <TextRow>S/ {formatearMonto(state.totales.miercoles)}</TextRow>
+                <TextRow>S/ {formatearMonto(state.totales.pagoTotal)}</TextRow>
+                <TextRow>{state.totales.ajustes ? `S/ ${formatearMonto(state.totales.ajustes)}` : '-'}</TextRow>
+                <TextRow className='w-[112] text-center font-bold'>S/ {formatearMonto(state.totales.pagoNeto)}</TextRow>
               </View>
+
+              {incluirAjustes && ajustesDetalle.length > 0 && (
+                <View style={{ width: (capturarLista ? 150 : 0) + 10 * 112 }} className='bg-white px-2 pt-3 pb-2'>
+                  <Text className='font-bold text-xl text-purple-700 mb-1'>Ajustes</Text>
+                  {ajustesDetalle.map((aj) => (
+                    <View key={'aj-' + aj.id} className='py-1 border-b border-gray-200'>
+                      <View className='flex-row justify-between'>
+                        <Text className='text-base font-medium'>{aj.nombreTrabajador} · {aj.motivo}</Text>
+                        <Text className={`text-base font-semibold ${aj.monto < 0 ? 'text-red-700' : 'text-green-700'}`}>
+                          {aj.monto < 0 ? '−' : '+'} S/ {formatearMonto(Math.abs(aj.monto))}
+                        </Text>
+                      </View>
+                      {aj.nota ? <Text className='text-sm text-gray-500'>{aj.nota}</Text> : null}
+                    </View>
+                  ))}
+                </View>
+              )}
             </View>
           </ViewShot>
         </ScrollView>

@@ -1,15 +1,16 @@
 import TextInputForm from '@/components/form/TextInputForm'
 import SeparatorView from '@/components/Separator'
 import { REQUIRED_DECIMAL, REQUIRED_INT } from '@/constants/Misc'
-import { actualizarTrabajadorProceso, eliminarDistribucionDescuento, insertarDistribucionDescuento, obtenerTrabajadoresProductoProceso, obtenerTrabajadorProceso2 } from '@/lib/database.service'
+import { actualizarTrabajadorProceso, eliminarDistribucionDescuento, inicializarDistribucion, insertarDistribucionDescuento, limpiarDistribucion, obtenerTrabajadoresProductoProceso, obtenerTrabajadorProceso2 } from '@/lib/database.service'
 import { TrabajadorProcesoSelect3, TrabajadorProcesoUpdate } from '@/lib/db/trabajadorProceso'
-import { calcularPagoTrabajador } from '@/lib/utils'
+import { calcularPagoTrabajador, formatearMonto } from '@/lib/utils'
 import { HeaderOptions } from '@react-navigation/elements'
 import { useLocalSearchParams, useNavigation, useRouter } from 'expo-router'
 import { useEffect, useMemo, useState } from 'react'
 import { Control, useForm, useWatch } from 'react-hook-form'
 import { ScrollView, Text, View } from 'react-native'
-import { Button, Checkbox, Divider, MD3Colors } from 'react-native-paper'
+import { SheetManager } from 'react-native-actions-sheet'
+import { Button, Checkbox, Divider, MD3Colors, TextInput } from 'react-native-paper'
 
 export default function CalculoPagoView() {
   const router = useRouter()
@@ -21,7 +22,7 @@ export default function CalculoPagoView() {
     [idTrabajadorProceso]
   )
 
-  const { control, handleSubmit } = useForm<TrabajadorProcesoUpdate>({
+  const { control, handleSubmit, setValue, getValues } = useForm<TrabajadorProcesoUpdate>({
     mode: 'onBlur',
     defaultValues: {
       id: datosProceso?.id,
@@ -33,6 +34,16 @@ export default function CalculoPagoView() {
   async function submit(data: TrabajadorProcesoUpdate) {
     await actualizarTrabajadorProceso(data)
     router.back()
+  }
+
+  async function abrirCalculadora() {
+    const actual = getValues('toneladasProcesadas')
+    const resultado = await SheetManager.show('calculadora-sheet', {
+      payload: { value: actual != null && `${actual}` !== '' ? Number(actual) : undefined }
+    })
+    if (resultado != null) {
+      setValue('toneladasProcesadas', resultado, { shouldValidate: true })
+    }
   }
 
   useEffect(() => {
@@ -47,6 +58,7 @@ export default function CalculoPagoView() {
       controlName='toneladasProcesadas'
       label='Toneladas procesadas'
       inputMode='decimal'
+      right={<TextInput.Icon icon='calculator' onPress={abrirCalculadora} forceTextInputFocus={false} />}
       rules={{
         ...REQUIRED_DECIMAL,
         validate: (val) => {
@@ -76,6 +88,7 @@ export default function CalculoPagoView() {
       toneladasTotales={datosProceso?.toneladasTotales}
       idTrabajadorActual={datosProceso!.idTrabajador}
       idTrabajadorProceso={datosProceso!.id}
+      distribucionInicializada={!!datosProceso?.distribucionInicializada}
     />
 
     <Divider className='my-1' />
@@ -85,7 +98,7 @@ export default function CalculoPagoView() {
       precioTonelada={datosProceso?.precioTonelada} />
 
     <View className='my-10'>
-      <Button mode='contained-tonal' onPress={handleSubmit(submit)}>Guardar</Button>
+      <Button mode='outlined' onPress={handleSubmit(submit)}>Guardar</Button>
     </View>
   </View>
 }
@@ -96,27 +109,45 @@ interface ListaDistDescuentoProps {
   idProductoProcesado: number
   idTrabajadorActual: number
   idTrabajadorProceso: number
+  distribucionInicializada: boolean
 }
 
 function ListaDistribucionDescuento({ control, toneladasTotales = 0, ...props }: ListaDistDescuentoProps) {
   const toneladasProcesadas = useWatch({ control, name: 'toneladasProcesadas' })
-  const [idsTrabajadores, setIdsTrabajadores] = useState<number[]>([])
+  const [, recargar] = useState(0)
+  const [inicializada, setInicializada] = useState(props.distribucionInicializada)
 
-  const trabajadores = obtenerTrabajadoresProductoProceso(props.idProductoProcesado, props.idTrabajadorProceso)
+  const proc = Number(toneladasProcesadas)
+  const hayRestante = toneladasProcesadas != null && `${toneladasProcesadas}` !== '' && Number.isFinite(proc) && proc !== toneladasTotales
 
-  if (toneladasProcesadas == toneladasTotales) return <View className='items-center'>
+  // Por defecto, la primera vez que hay restante se marcan todos los demás
+  // trabajadores; si deja de haber restante se limpia para empezar de cero.
+  useEffect(() => {
+    if (hayRestante && !inicializada) {
+      setInicializada(true)
+      inicializarDistribucion(props.idTrabajadorProceso, props.idProductoProcesado, props.idTrabajadorActual)
+        .then(() => recargar(v => v + 1))
+    } else if (!hayRestante && inicializada) {
+      setInicializada(false)
+      limpiarDistribucion(props.idTrabajadorProceso)
+    }
+  }, [hayRestante, inicializada])
+
+  if (!hayRestante) return <View className='items-center'>
     <Text className='font-semibold'>Sin descuento</Text>
   </View>
 
+  const trabajadores = obtenerTrabajadoresProductoProceso(props.idProductoProcesado, props.idTrabajadorProceso)
+
   async function handleOnCheck(item: TrabajadorProcesoSelect3) {
     if (item.idDistribucionDescuento) {
-      eliminarDistribucionDescuento(item.idDistribucionDescuento)
-      setIdsTrabajadores(idsTrabajadores.filter(val => val != item.idTrabajador))
+      await eliminarDistribucionDescuento(item.idDistribucionDescuento)
+      recargar(v => v + 1)
       return
     }
 
     await insertarDistribucionDescuento(item.idTrabajador, props.idTrabajadorProceso)
-    setIdsTrabajadores([...idsTrabajadores, item.idTrabajador])
+    recargar(v => v + 1)
   }
 
 
@@ -166,10 +197,10 @@ function DetallePago({ control, toneladasTotales = 0, precioTonelada = 0 }: Deta
 
     <View className='flex-row justify-between'>
       <Text className='text-[12px] 2xs:text-base'>
-        Precio x ton: <Text className='font-semibold'>S/ {precioTonelada}</Text>
+        Precio x ton: <Text className='font-semibold'>S/ {formatearMonto(precioTonelada)}</Text>
       </Text>
       <Text className='text-[12px] 2xs:text-base'>
-        Pago: <Text className='font-semibold'>S/ {pagoTrabajador()}</Text>
+        Pago: <Text className='font-semibold'>S/ {formatearMonto(pagoTrabajador())}</Text>
       </Text>
     </View>
 

@@ -6,4 +6,12 @@
 
 @theme {
   --breakpoint-2xs: 362px;
+
+  --color-brand:       #7C3AED;
+  --color-brand-light: #EDE9FE;
+  --color-brand-dark:  #6D28D9;
+  --color-positive:    #15803D;
+  --color-negative:    #B91C1C;
+  --color-info:        #3B82F6;
+  --color-muted:       #6B7280;
 }

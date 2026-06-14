@@ -1,6 +1,8 @@
 import Big from 'big.js'
-import { and, asc, desc, eq, like, sql } from 'drizzle-orm'
+import { and, asc, count, desc, eq, inArray, like, sql } from 'drizzle-orm'
+import { calcularPagoTrabajador, labelDiaSemana, normalizarNombre, normalizarParaBusqueda } from './utils'
 import { db } from './database'
+import { AjusteSemanalInsert, ajusteSemanalTable } from './db/ajusteSemanal'
 import { distribucionDescuentoTable } from './db/distribucionDescuento'
 import { PlanillaSemanalInsert, planillaSemanalTable } from './db/planillaSemanal'
 import { ProductoInsert, productoTable } from './db/producto'
@@ -11,6 +13,22 @@ import { TrabajadorProcesoInsert, TrabajadorProcesoSelect3, trabajadorProcesoTab
 // Planilla semanal
 export function obtenerPlanillasSemanales() {
   return db.select().from(planillaSemanalTable).orderBy(desc(planillaSemanalTable.creacion)).all()
+}
+
+export function obtenerResumenPlanillas() {
+  return db
+    .select({
+      id: planillaSemanalTable.id,
+      nombre: planillaSemanalTable.nombre,
+      creacion: planillaSemanalTable.creacion,
+      sesiones: count(productoProcesadoTable.id),
+      totalBruto: sql<number>`COALESCE(SUM(${productoProcesadoTable.toneladas} * ${productoProcesadoTable.precioTonelada}), 0)`,
+    })
+    .from(planillaSemanalTable)
+    .leftJoin(productoProcesadoTable, eq(productoProcesadoTable.idPlanillaSemanal, planillaSemanalTable.id))
+    .groupBy(planillaSemanalTable.id)
+    .orderBy(desc(planillaSemanalTable.creacion))
+    .all()
 }
 
 export async function insertarPlanillaSemanal(data: PlanillaSemanalInsert) {
@@ -93,6 +111,7 @@ export function obtenerTrabajadorProceso2(id: number) {
     id: trabajadorProcesoTable.id,
     toneladasProcesadas: trabajadorProcesoTable.toneladasProcesadas,
     totalColaboradores: trabajadorProcesoTable.totalColaboradores,
+    distribucionInicializada: trabajadorProcesoTable.distribucionInicializada,
 
     idTrabajador: trabajadorProcesoTable.idTrabajador,
     nombreTrabajador: trabajadorTable.nombre,
@@ -229,18 +248,78 @@ export async function actualizarTrabajadorProceso(data: TrabajadorProcesoUpdate)
 }
 
 export async function eliminaTrabajadorProceso(id: number) {
-  await db.delete(distribucionDescuentoTable).where(
-    eq(distribucionDescuentoTable.idTrabajadorProceso, id)
-  )
+  const proceso = db.select({
+    idTrabajador: trabajadorProcesoTable.idTrabajador,
+    idProductoProcesado: trabajadorProcesoTable.idProductoProcesado,
+  }).from(trabajadorProcesoTable).where(eq(trabajadorProcesoTable.id, id)).all()[0]
 
-  await db.delete(trabajadorProcesoTable).where(
-    eq(trabajadorProcesoTable.id, id)
-  )
+  await db.transaction(async (tx) => {
+    // Distribuciones que este trabajador repartía
+    await tx.delete(distribucionDescuentoTable).where(
+      eq(distribucionDescuentoTable.idTrabajadorProceso, id)
+    )
+
+    // Distribuciones de OTROS donde este trabajador figura como receptor
+    // (dentro del mismo producto procesado), para no dejar receptores fantasma
+    if (proceso) {
+      const procesosDelProducto = tx.select({ id: trabajadorProcesoTable.id })
+        .from(trabajadorProcesoTable)
+        .where(eq(trabajadorProcesoTable.idProductoProcesado, proceso.idProductoProcesado))
+
+      await tx.delete(distribucionDescuentoTable).where(and(
+        eq(distribucionDescuentoTable.idTrabajador, proceso.idTrabajador),
+        inArray(distribucionDescuentoTable.idTrabajadorProceso, procesosDelProducto)
+      ))
+    }
+
+    await tx.delete(trabajadorProcesoTable).where(
+      eq(trabajadorProcesoTable.id, id)
+    )
+  })
 }
 
 // Trabajador
-export function obtenerTrabajadoresPorNombre(value: string) {
-  return db.select().from(trabajadorTable).where(like(trabajadorTable.nombre, value)).all()
+// Búsqueda normalizada (sin acentos / sin mayúsculas / tolerante a puntos).
+// Filtra solo activos y hace el match en JS sobre nombre y alias.
+export function obtenerTrabajadoresPorNombre(value: string, limite = 20) {
+  const consulta = normalizarParaBusqueda(value)
+  if (!consulta) return []
+
+  const activos = db.select().from(trabajadorTable).where(eq(trabajadorTable.activo, true)).all()
+
+  return activos
+    .filter(t =>
+      normalizarParaBusqueda(t.nombre).includes(consulta) ||
+      (t.alias ? normalizarParaBusqueda(t.alias).includes(consulta) : false)
+    )
+    .slice(0, limite)
+}
+
+// Trabajadores (distintos, activos) que participan en alguna sesión de la planilla
+export function obtenerTrabajadoresDePlanilla(idPlanilla: number) {
+  return db.selectDistinct({
+    id: trabajadorTable.id,
+    nombre: trabajadorTable.nombre,
+    alias: trabajadorTable.alias,
+    activo: trabajadorTable.activo,
+  }).from(trabajadorProcesoTable)
+    .innerJoin(trabajadorTable, eq(trabajadorTable.id, trabajadorProcesoTable.idTrabajador))
+    .innerJoin(productoProcesadoTable, eq(productoProcesadoTable.id, trabajadorProcesoTable.idProductoProcesado))
+    .where(and(
+      eq(productoProcesadoTable.idPlanillaSemanal, idPlanilla),
+      eq(trabajadorTable.activo, true),
+    ))
+    .orderBy(asc(trabajadorTable.nombre))
+    .all()
+}
+
+export function obtenerTrabajadores(soloActivos = true) {
+  const query = db.select().from(trabajadorTable)
+  const lista = soloActivos
+    ? query.where(eq(trabajadorTable.activo, true)).all()
+    : query.all()
+
+  return lista.sort((a, b) => normalizarParaBusqueda(a.nombre).localeCompare(normalizarParaBusqueda(b.nombre)))
 }
 
 export function obtenerTrabajador(id: number) {
@@ -250,8 +329,42 @@ export function obtenerTrabajador(id: number) {
 }
 
 export async function insertarTrabajador(data: TrabajadorInsert) {
-  const insert = await db.insert(trabajadorTable).values(data)
+  const insert = await db.insert(trabajadorTable).values({
+    ...data,
+    nombre: normalizarNombre(data.nombre),
+  })
   return insert.lastInsertRowId
+}
+
+export async function actualizarTrabajador(id: number, data: { nombre: string, alias?: string | null }) {
+  await db.update(trabajadorTable).set({
+    nombre: normalizarNombre(data.nombre),
+    alias: data.alias ? normalizarNombre(data.alias) : null,
+  }).where(eq(trabajadorTable.id, id))
+}
+
+export async function archivarTrabajador(id: number, activo: boolean) {
+  await db.update(trabajadorTable).set({ activo }).where(eq(trabajadorTable.id, id))
+}
+
+// Fusiona varios trabajadores en uno canónico: reasigna su historial y elimina los duplicados.
+export async function fusionarTrabajadores(idCanonico: number, idsAFusionar: number[]) {
+  const ids = idsAFusionar.filter(id => id !== idCanonico)
+  if (ids.length === 0) return
+
+  await db.transaction(async (tx) => {
+    for (const id of ids) {
+      await tx.update(trabajadorProcesoTable)
+        .set({ idTrabajador: idCanonico })
+        .where(eq(trabajadorProcesoTable.idTrabajador, id))
+
+      await tx.update(distribucionDescuentoTable)
+        .set({ idTrabajador: idCanonico })
+        .where(eq(distribucionDescuentoTable.idTrabajador, id))
+
+      await tx.delete(trabajadorTable).where(eq(trabajadorTable.id, id))
+    }
+  })
 }
 
 // Producto
@@ -287,6 +400,150 @@ export async function eliminarDistribucionDescuento(id: number) {
   await db.delete(distribucionDescuentoTable).where(
     eq(distribucionDescuentoTable.id, id)
   )
+}
+
+// Marca todos los demás trabajadores del producto procesado como receptores del
+// restante (excepto el actual, que está deshabilitado), y deja registrado que la
+// distribución ya fue inicializada para no reiniciarla si luego se desmarcan todos.
+export async function inicializarDistribucion(
+  idTrabajadorProceso: number,
+  idProductoProcesado: number,
+  idTrabajadorActual: number
+) {
+  // Si ya existen registros (p. ej. datos previos a esta función), se respeta la
+  // selección existente y solo se marca el flag, evitando duplicados.
+  const existentes = db.select({ id: distribucionDescuentoTable.id })
+    .from(distribucionDescuentoTable)
+    .where(eq(distribucionDescuentoTable.idTrabajadorProceso, idTrabajadorProceso))
+    .all()
+
+  const trabajadores = existentes.length ? [] : db.select({ idTrabajador: trabajadorProcesoTable.idTrabajador })
+    .from(trabajadorProcesoTable)
+    .where(eq(trabajadorProcesoTable.idProductoProcesado, idProductoProcesado))
+    .all()
+    .filter(t => t.idTrabajador !== idTrabajadorActual)
+
+  await db.transaction(async (tx) => {
+    if (trabajadores.length) {
+      await tx.insert(distribucionDescuentoTable).values(
+        trabajadores.map(t => ({ idTrabajador: t.idTrabajador, idTrabajadorProceso }))
+      )
+    }
+    await tx.update(trabajadorProcesoTable)
+      .set({ distribucionInicializada: true })
+      .where(eq(trabajadorProcesoTable.id, idTrabajadorProceso))
+  })
+}
+
+// Limpia la distribución cuando ya no hay restante que repartir y reinicia el flag,
+// para que un futuro restante arranque de cero con todos marcados.
+export async function limpiarDistribucion(idTrabajadorProceso: number) {
+  await db.transaction(async (tx) => {
+    await tx.delete(distribucionDescuentoTable).where(
+      eq(distribucionDescuentoTable.idTrabajadorProceso, idTrabajadorProceso)
+    )
+    await tx.update(trabajadorProcesoTable)
+      .set({ distribucionInicializada: false })
+      .where(eq(trabajadorProcesoTable.id, idTrabajadorProceso))
+  })
+}
+
+// Cuadre: esperado (toneladas × precio) vs asignado (suma de pagos) por sesión de la planilla
+export interface FilaCuadre {
+  idProductoProcesado: number
+  etiqueta: string
+  esperado: number
+  asignado: number
+  diferencia: number
+}
+
+export async function obtenerCuadrePlanilla(idPlanilla: number) {
+  const productos = obtenerProductosProcesadosPorPlanilla(idPlanilla)
+  const trabajos = await listarTrabajosPlanilla(idPlanilla)
+
+  const asignadoPorProducto = new Map<number, Big>()
+  for (const t of trabajos) {
+    const pagoExtra = await obtenerCalculoPagoExtra(t.idTrabajador, t.idProductoProcesado)
+    const pago = calcularPagoTrabajador(t.totalColaboradores, {
+      precioTonelada: t.precioTonelada,
+      toneladasProcesadas: t.toneladasProcesadas,
+      extra: pagoExtra || '',
+    })
+    const acum = asignadoPorProducto.get(t.idProductoProcesado) ?? new Big(0)
+    asignadoPorProducto.set(t.idProductoProcesado, acum.plus(pago))
+  }
+
+  let totalEsperado = new Big(0)
+  let totalAsignado = new Big(0)
+  const filas: FilaCuadre[] = productos.map(p => {
+    const esperado = new Big(p.toneladas).mul(p.precioTonelada).round(2)
+    const asignado = (asignadoPorProducto.get(p.id) ?? new Big(0)).round(2)
+    totalEsperado = totalEsperado.plus(esperado)
+    totalAsignado = totalAsignado.plus(asignado)
+
+    return {
+      idProductoProcesado: p.id,
+      etiqueta: `${labelDiaSemana(p.diaSemana)} · ${p.nombreProducto}${p.etiqueta ? ` (${p.etiqueta})` : ''}`,
+      esperado: esperado.toNumber(),
+      asignado: asignado.toNumber(),
+      diferencia: esperado.minus(asignado).toNumber(),
+    }
+  })
+
+  return {
+    filas,
+    totalEsperado: totalEsperado.toNumber(),
+    totalAsignado: totalAsignado.toNumber(),
+    hayDescuadre: filas.some(f => f.diferencia !== 0),
+  }
+}
+
+// Ajustes semanales (préstamos, castigos, suspensiones, etc.)
+export function listarAjustesPorPlanilla(idPlanilla: number) {
+  return db.select({
+    id: ajusteSemanalTable.id,
+    idTrabajador: ajusteSemanalTable.idTrabajador,
+    nombreTrabajador: trabajadorTable.nombre,
+    monto: ajusteSemanalTable.monto,
+    motivo: ajusteSemanalTable.motivo,
+    nota: ajusteSemanalTable.nota,
+  }).from(ajusteSemanalTable)
+    .innerJoin(trabajadorTable, eq(trabajadorTable.id, ajusteSemanalTable.idTrabajador))
+    .where(eq(ajusteSemanalTable.idPlanillaSemanal, idPlanilla))
+    .orderBy(asc(trabajadorTable.nombre))
+    .all()
+}
+
+// Mapa idTrabajador -> suma de ajustes de la planilla (para el reporte / pago neto)
+export function obtenerAjustesPorTrabajadorPlanilla(idPlanilla: number) {
+  const filas = db.select({
+    idTrabajador: ajusteSemanalTable.idTrabajador,
+    total: sql<number>`SUM(${ajusteSemanalTable.monto})`,
+  }).from(ajusteSemanalTable)
+    .where(eq(ajusteSemanalTable.idPlanillaSemanal, idPlanilla))
+    .groupBy(ajusteSemanalTable.idTrabajador)
+    .all()
+
+  const mapa = new Map<number, number>()
+  for (const f of filas) mapa.set(f.idTrabajador, f.total ?? 0)
+  return mapa
+}
+
+export async function insertarAjuste(data: AjusteSemanalInsert) {
+  const insert = await db.insert(ajusteSemanalTable).values(data)
+  return insert.lastInsertRowId
+}
+
+export async function actualizarAjuste(id: number, data: { monto: number, motivo: string, nota?: string | null }) {
+  await db.update(ajusteSemanalTable).set({
+    monto: data.monto,
+    motivo: data.motivo,
+    nota: data.nota ?? null,
+  }).where(eq(ajusteSemanalTable.id, id))
+}
+
+export async function eliminarAjuste(id: number) {
+  await db.delete(ajusteSemanalTable).where(eq(ajusteSemanalTable.id, id))
 }
 
 // Otros

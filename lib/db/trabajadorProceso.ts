@@ -5,6 +5,7 @@ export const trabajadorProcesoTable = sqliteTable('trabajadorProceso', {
   id: integer().primaryKey({ autoIncrement: true }),
   toneladasProcesadas: real().notNull(),
   totalColaboradores: integer().notNull(),
+  distribucionInicializada: integer({ mode: 'boolean' }).notNull().default(false),
 
   idTrabajador: integer().notNull(),
   idProductoProcesado: integer().notNull(),

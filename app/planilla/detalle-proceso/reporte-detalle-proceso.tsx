@@ -1,11 +1,11 @@
 import SeparatorView from '@/components/Separator'
 import { liveQueryTrabajadoresProceso, obtenerCalculoPagoExtra, obtenerDatosPagoExtra, obtenerProductoProcesado2 } from '@/lib/database.service'
-import { calcularPagoTrabajador } from '@/lib/utils'
+import { calcularPagoTrabajador, formatearMonto } from '@/lib/utils'
 import { FlashList } from '@shopify/flash-list'
 import Big from 'big.js'
 import { useLocalSearchParams } from 'expo-router'
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { Dimensions, SafeAreaView, Text, View } from 'react-native'
+import { Dimensions, Text, View } from 'react-native'
 import ActionSheet, { ActionSheetRef, ScrollView } from 'react-native-actions-sheet'
 import { ActivityIndicator, Card, Divider, List } from 'react-native-paper'
 
@@ -97,7 +97,7 @@ export default function ReporteProceso() {
     </View>
   }
 
-  return <SafeAreaView className='h-full mx-3 mt-2'>
+  return <View className='h-full pt-2 px-2 pb-safe'>
     <View className='flex-row justify-between'>
       <Text className='text-sm 2xs:text-lg font-semibold'>
         Producto:
@@ -117,7 +117,7 @@ export default function ReporteProceso() {
 
       <Text className='text-sm 2xs:text-lg font-semibold'>
         Pago:
-        <Text className='text-purple-500'> S/ {state.pagoProducto}</Text>
+        <Text className='text-purple-500'> S/ {formatearMonto(state.pagoProducto)}</Text>
       </Text>
     </View>
 
@@ -127,16 +127,33 @@ export default function ReporteProceso() {
 
     <Divider className='my-2' />
 
-    <View className='flex-row justify-end'>
+    <View className='flex-row justify-end mb-4'>
       <Text className='text-lg font-semibold'>
         Total:
         <Text
           className={state.total === state.pagoProducto ? 'text-green-800' : 'text-red-800'}
-        > S/ {state.total}</Text>
+        > S/ {formatearMonto(state.total)}</Text>
       </Text>
+      {/* <Text className={state.total === state.pagoProducto ? 'text-green-800' : 'text-red-800'}> S/ {state.total}</Text> */}
     </View>
 
-  </SafeAreaView>
+    <DiferenciaCuadre esperado={state.pagoProducto} asignado={state.total} />
+
+  </View>
+}
+
+function DiferenciaCuadre({ esperado, asignado }: { esperado: number, asignado: number }) {
+  const diferencia = new Big(esperado).minus(asignado).round(2).toNumber()
+
+  if (diferencia === 0) {
+    return <Text className='text-right text-green-700 mt-1'>✓ El pago cuadra con lo procesado</Text>
+  }
+
+  return <Text className='text-right text-red-700 mt-1'>
+    {diferencia > 0
+      ? `Faltan S/ ${formatearMonto(diferencia)} por asignar (remanente sin repartir)`
+      : `Sobre-asignado S/ ${formatearMonto(Math.abs(diferencia))}`}
+  </Text>
 }
 
 interface ListaDetalleProps {
@@ -178,7 +195,7 @@ function ListaDetalle({ data, idProductoProcesado }: ListaDetalleProps) {
                 <Text className='text-[13px] 2xs:text-base font-medium text-purple-600'>Procesado: </Text>
                 <Text className='text-[13px] 2xs:text-base '>{item.toneladasProcesadas}t</Text>
                 <Text className='text-[13px] 2xs:text-base font-medium text-purple-600 ml-auto'>Total: </Text>
-                <Text className='text-[13px] 2xs:text-base '>S/ {item.pagoTotal}</Text>
+                <Text className='text-[13px] 2xs:text-base '>S/ {formatearMonto(item.pagoTotal)}</Text>
               </View>
             </View>
 
@@ -251,7 +268,7 @@ function DetallePagoSheet({ data, idProductoProcesado }: DetallePagoSheetProps) 
         Pago por tonelada:
         <Text className='text-[12px]'> ({data?.toneladasProcesadas}t / {data?.totalColaboradores})</Text>
       </Text>
-      <Text className='font-bold mr-5'>S/ {pagoInicial || data?.pagoTotal}</Text>
+      <Text className='font-bold mr-5'>S/ {formatearMonto(pagoInicial || data?.pagoTotal)}</Text>
     </View>
     <SeparatorView />
 
@@ -265,14 +282,14 @@ function DetallePagoSheet({ data, idProductoProcesado }: DetallePagoSheetProps) 
           {item.nombreTrabajador}
           <Text className='text-[12px]'> ({item.toneladasProcesadas}t / {item.totalColaboradores})</Text>
         </Text>}
-        right={() => <Text className='font-bold'>S/ {item.pagoTotal}</Text>}
+        right={() => <Text className='font-bold'>S/ {formatearMonto(item.pagoTotal)}</Text>}
       />)}
     </ScrollView>
 
     <Divider className='my-2' />
     <View className='flex-row justify-between'>
       <Text>Pago Total: </Text>
-      <Text className='font-bold text-purple-700 mr-5'>S/ {data?.pagoTotal}</Text>
+      <Text className='font-bold text-purple-700 mr-5'>S/ {formatearMonto(data?.pagoTotal)}</Text>
     </View>
   </View>
 }

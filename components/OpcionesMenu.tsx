@@ -35,7 +35,7 @@ export function OpcionesMenu({ children }: OpcionesMenuProps) {
     visible={visible}
     onDismiss={closeMenu}
     anchorPosition='bottom'
-    anchor={<IconButton icon='dots-vertical' onPress={openMenu} />}
+    anchor={<IconButton icon='dots-vertical' iconColor='white' onPress={openMenu} />}
   >
     {childrenWithProps}
   </Menu>

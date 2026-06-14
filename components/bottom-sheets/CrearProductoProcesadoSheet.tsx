@@ -5,8 +5,8 @@ import { ProductoProcesadoInsert } from '@/lib/db/productoProcesado'
 import { labelDiaSemana } from '@/lib/utils'
 import { useMemo, useState } from 'react'
 import { Controller, useForm } from 'react-hook-form'
-import { Alert, Platform, ScrollView, View } from 'react-native'
-import ActionSheet, { SheetManager, SheetProps } from 'react-native-actions-sheet'
+import { Alert, Platform, View } from 'react-native'
+import ActionSheet, { ScrollView, SheetManager, SheetProps } from 'react-native-actions-sheet'
 import { Button, HelperText, List, TextInput, Text as TextPaper, TouchableRipple } from 'react-native-paper'
 import SeparatorView from '../Separator'
 import TextInputForm from '../form/TextInputForm'
@@ -62,7 +62,7 @@ export default function CrearProductoProcesadoSheet({ payload }: SheetProps<'cre
 
     <SeparatorView height={15} />
 
-    <ScrollView>
+    <ScrollView keyboardShouldPersistTaps='handled'>
       <Controller
         control={control} name='diaSemana'
         rules={REQUIRED_RULE}
@@ -130,6 +130,8 @@ export default function CrearProductoProcesadoSheet({ payload }: SheetProps<'cre
         {productoProcesado ? 'Modificar' : 'Crear'}
       </Button>
     </View>
+
+    <SeparatorView height={10} />
   </ActionSheet>
 }
 

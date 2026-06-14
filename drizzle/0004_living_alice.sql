@@ -1,0 +1,1 @@
+ALTER TABLE `trabajadorProceso` ADD `distribucionInicializada` integer DEFAULT false NOT NULL;

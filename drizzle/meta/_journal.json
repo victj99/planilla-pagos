@@ -15,6 +15,27 @@
       "when": 1749525820082,
       "tag": "0001_skinny_iron_man",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1781376972646,
+      "tag": "0002_misty_machine_man",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "6",
+      "when": 1781377231281,
+      "tag": "0003_mute_maggott",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "6",
+      "when": 1781399783341,
+      "tag": "0004_living_alice",
+      "breakpoints": true
     }
   ]
 }
